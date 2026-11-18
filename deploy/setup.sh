@@ -12,6 +12,9 @@ apt-get install -y docker.io rsync
 id cloudagent >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker cloudagent
 install -d -o cloudagent -g cloudagent /opt/cloud-agent
 
+# The server's pnpm is a corepack shim that tries to download a newer pnpm, so install a fixed one.
+su cloudagent -c "export PATH=/opt/node22/bin:\$PATH; npm i -g pnpm@10 --prefix /home/cloudagent/.local"
+
 # CI logs in as cloudagent with its own key, and may only restart this one service.
 install -d -m 700 -o cloudagent -g cloudagent /home/cloudagent/.ssh
 echo "$CI_KEY" > /home/cloudagent/.ssh/authorized_keys
