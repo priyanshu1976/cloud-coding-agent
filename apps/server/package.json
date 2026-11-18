@@ -1,0 +1,19 @@
+{
+  "name": "@agent/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@agent/ai": "workspace:*",
+    "@agent/harness": "workspace:*",
+    "@agent/sandbox": "workspace:*",
+    "@agent/shared": "workspace:*",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
+  }
+}
