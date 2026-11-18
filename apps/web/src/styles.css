@@ -1,0 +1,75 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --panel: #f4f4f5;
+  --text: #18181b;
+  --muted: #71717a;
+  --border: #e4e4e7;
+  --add-bg: #e6ffec;
+  --add-fg: #1a7f37;
+  --del-bg: #ffebe9;
+  --del-fg: #cf222e;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d0f;
+    --panel: #18181b;
+    --text: #ececf0;
+    --muted: #8b8b94;
+    --border: #2a2a2f;
+    --add-bg: #12261a;
+    --add-fg: #56d364;
+    --del-bg: #2d1517;
+    --del-fg: #ff7b72;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+input, select, textarea, button { font: inherit; color: inherit; }
+code, pre { font-family: var(--mono); font-size: 13px; }
+
+/* Layout: header, a scrolling middle, composer pinned to the bottom. */
+.app { height: 100vh; max-width: 760px; margin: 0 auto; padding: 0 16px; display: flex; flex-direction: column; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
+.ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+.hero { flex: 1; display: grid; place-items: center; }
+.hero h1 { font-size: 28px; font-weight: 600; }
+.thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 0 16px; }
+.error { color: var(--del-fg); margin: 0 0 8px; }
+
+.settings { display: flex; gap: 12px; padding: 12px; margin-bottom: 8px; background: var(--panel); border-radius: 12px; }
+.settings label { flex: 1; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.settings input, .settings select { padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+
+/* Messages */
+.bubble.user { align-self: flex-end; max-width: 80%; background: var(--panel); padding: 8px 14px; border-radius: 16px; white-space: pre-wrap; }
+.bubble small { display: block; color: var(--muted); font-size: 12px; }
+.text { white-space: pre-wrap; }
+.status, .action, .working { color: var(--muted); font-size: 13px; }
+.action { font-family: var(--mono); }
+.working::before { content: "●"; margin-right: 6px; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: 0.2; } }
+
+/* Command and diff blocks */
+details { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+summary { padding: 6px 12px; cursor: pointer; font-size: 13px; color: var(--muted); }
+details pre { margin: 0; padding: 8px 12px; max-height: 260px; overflow: auto; border-top: 1px solid var(--border); background: var(--panel); }
+.diff { display: grid; gap: 8px; }
+.diff-title { font-size: 13px; color: var(--muted); }
+.diff pre { padding: 0; background: none; }
+.diff pre div { padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); }
+.del { background: var(--del-bg); }
+.add-count { color: var(--add-fg); margin-left: 12px; }
+.del-count { color: var(--del-fg); margin-left: 6px; }
+.download { align-self: flex-start; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+
+/* Composer */
+.composer { margin: 8px 0 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); }
+.composer .repo { width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--muted); font-family: var(--mono); font-size: 12px; outline: none; }
+.composer .row { display: flex; align-items: flex-end; gap: 8px; padding: 8px 8px 8px 14px; }
+.composer textarea { flex: 1; border: 0; background: none; resize: none; outline: none; field-sizing: content; max-height: 160px; }
+.round { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); cursor: pointer; }
+.round:disabled { opacity: 0.3; cursor: default; }
