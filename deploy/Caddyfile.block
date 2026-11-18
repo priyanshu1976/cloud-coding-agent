@@ -1,0 +1,21 @@
+agent.priyanshuu.xyz {
+	# The app has no login of its own, and it runs commands in containers, so keep it behind a password.
+	basicauth {
+		agent __PASSWORD_HASH__
+	}
+
+	# API and live events. No compression here, it would buffer the event stream.
+	handle /runs/* {
+		reverse_proxy 127.0.0.1:3001 {
+			flush_interval -1
+		}
+	}
+
+	# The built web app.
+	handle {
+		encode zstd gzip
+		root * /opt/cloud-agent/apps/web/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

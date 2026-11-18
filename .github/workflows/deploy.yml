@@ -1,0 +1,51 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm --filter @agent/web build
+
+      - name: Copy to the server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          echo "SSH_OPTS=-i $HOME/.ssh/id_deploy" >> "$GITHUB_ENV"
+          rsync -az --delete --exclude .git --exclude node_modules \
+            -e "ssh -i $HOME/.ssh/id_deploy" ./ "cloudagent@$DEPLOY_HOST:/opt/cloud-agent/"
+
+      - name: Install, build the sandbox image, restart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh $SSH_OPTS "cloudagent@$DEPLOY_HOST" '
+            set -e
+            cd /opt/cloud-agent
+            export PATH=/opt/node22/bin:$PATH
+            pnpm install --frozen-lockfile
+            pnpm sandbox:build
+            sudo systemctl restart cloud-agent
+          '

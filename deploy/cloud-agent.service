@@ -1,0 +1,17 @@
+[Unit]
+Description=Cloud Agent server
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+User=cloudagent
+WorkingDirectory=/opt/cloud-agent
+Environment=PATH=/opt/node22/bin:/usr/bin:/bin
+# Only Caddy (which asks for a password) may reach the server.
+Environment=HOST=127.0.0.1
+ExecStart=/opt/cloud-agent/node_modules/.bin/tsx apps/server/src/index.ts
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

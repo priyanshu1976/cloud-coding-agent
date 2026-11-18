@@ -61,4 +61,5 @@ app.get("/runs/:id/download", (req, res) => {
   res.download(zipPath, "result.zip");
 });
 
-app.listen(3001, () => console.log("server on http://localhost:3001"));
+// HOST is set to 127.0.0.1 in production so only the reverse proxy can reach us.
+app.listen(3001, process.env.HOST ?? "::", () => console.log("server on port 3001"));
