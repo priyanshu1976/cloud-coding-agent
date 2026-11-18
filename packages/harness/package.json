@@ -1,0 +1,16 @@
+{
+  "name": "@agent/harness",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "cli": "tsx src/cli.ts",
+    "check": "tsx src/check.ts"
+  },
+  "dependencies": {
+    "@agent/ai": "workspace:*",
+    "@agent/sandbox": "workspace:*",
+    "@agent/shared": "workspace:*"
+  }
+}
