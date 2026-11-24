@@ -81,7 +81,9 @@ async function execute(id: string, chatId: string, chat: Chat | undefined, run: 
     });
 
     // Zip the repo (without .git and node_modules) and copy it out for the download button.
-    await run.sandbox.exec("zip -r /tmp/result.zip . -x '.git/*' '*node_modules/*'");
+    const zip = await run.sandbox.exec("zip -r /tmp/result.zip . -x '.git/*' '*node_modules/*'");
+    if (zip.exitCode === 12) throw new Error("The agent finished without creating any files. Try again, or describe the task in more detail."); // zip's "nothing to do"
+    if (zip.exitCode !== 0) throw new Error(`zip failed: ${zip.stderr.trim()}`);
     const zipPath = join(tmpdir(), `${id}.zip`);
     await run.sandbox.download("/tmp/result.zip", zipPath);
     run.zipPath = zipPath;

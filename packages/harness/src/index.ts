@@ -7,6 +7,11 @@ import { runTool, tools } from "./tools";
 
 const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`; // safe to paste into a shell command
 
+async function workspaceIsEmpty(sandbox: Sandbox) {
+  const r = await sandbox.exec("find . -path ./.git -prune -o -type f -print -quit");
+  return r.stdout.trim() === "";
+}
+
 export async function runAgent(opts: {
   repoUrl?: string; // no repoUrl = start a new project in an empty repo
   history?: Message[]; // continuing a chat: the workspace is already restored, so skip clone/init
@@ -52,9 +57,10 @@ export async function runAgent(opts: {
         },
       ];
 
+  let nudged = false;
   let summary = "Stopped: reached the maximum number of steps.";
   
-  // ! this is the main harness
+  
   for (let step = 0; step < maxSteps; step++) {
     signal?.throwIfAborted();
     const reply = await llm.chat(messages, tools);
@@ -62,6 +68,12 @@ export async function runAgent(opts: {
     messages.push({ role: "assistant", text: reply.text, toolCalls: reply.toolCalls });
 
     if (reply.toolCalls.length === 0) {
+      // Some models announce a plan ("I'll create the files…") and stop. If nothing exists yet, push once.
+      if (!nudged && (await workspaceIsEmpty(sandbox))) {
+        nudged = true;
+        messages.push({ role: "user", content: "You have not created any files yet. Use the tools to do the task now instead of only describing it." });
+        continue;
+      }
       summary = reply.text ?? "Done.";
       break;
     }
