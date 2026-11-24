@@ -120,7 +120,7 @@ export function App() {
       )}
 
       {events.length > 0 ? (
-        <Thread runId={runId} running={running} events={events} />
+        <Thread runId={runId} chatId={chatId} running={running} events={events} />
       ) : (
         <div className="hero">
           <h1>What should we work on?</h1>

@@ -66,6 +66,9 @@ details pre { margin: 0; padding: 8px 12px; max-height: 260px; overflow: auto; b
 .del-count { color: var(--del-fg); margin-left: 6px; }
 .download { align-self: flex-start; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
 
+.preview { display: flex; align-items: center; gap: 10px; }
+.preview a { padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+
 /* Composer */
 .composer { margin: 8px 0 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); }
 .composer .repo { width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--muted); font-family: var(--mono); font-size: 12px; outline: none; }

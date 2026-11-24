@@ -1,7 +1,7 @@
 // The tools the model can use, and the code that runs them in the sandbox.
 import type { ToolCall, ToolDef } from "@agent/ai";
 import type { Sandbox } from "@agent/sandbox";
-import type { AgentEvent } from "@agent/shared";
+import { PREVIEW_PORT, type AgentEvent } from "@agent/shared";
 
 export const tools: ToolDef[] = [
   {
@@ -41,8 +41,22 @@ export const tools: ToolDef[] = [
       required: ["path", "old_string", "new_string"],
     },
   },
+  {
+    name: "start_preview",
+    description:
+      `Start a web server in the background so the user can preview the app in their browser. ` +
+      `The command must listen on 0.0.0.0 port ${PREVIEW_PORT} (for example "npm run dev -- --host 0.0.0.0 --port ${PREVIEW_PORT}" ` +
+      `or "npx --yes serve -l ${PREVIEW_PORT} ."). Install dependencies first with run_command. ` +
+      "Returns once the server answers, or the server's log if it never does.",
+    parameters: {
+      type: "object",
+      properties: { command: { type: "string" } },
+      required: ["command"],
+    },
+  },
 ];
 
+const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`; // safe to paste into a shell command
 const MAX_OUTPUT = 10_000; // characters sent back to the model
 
 // Keep the start and the end: errors usually show up at the end of command output.
@@ -88,6 +102,17 @@ export async function runTool(
         await sandbox.writeFile(input.path, text.replace(input.old_string, () => input.new_string));
         emit({ type: "file.changed", path: input.path });
         return `Edited ${input.path}`;
+      }
+      case "start_preview": {
+        // setsid + nohup: the server must outlive this `docker exec`. Its log goes to a file, not to us.
+        await sandbox.exec(`setsid nohup bash -c ${quote(input.command)} > /tmp/preview.log 2>&1 < /dev/null &`);
+        const wait =
+          `for i in $(seq 120); do curl -s -o /dev/null http://127.0.0.1:${PREVIEW_PORT}/ && exit 0; sleep 1; done; ` +
+          "tail -n 30 /tmp/preview.log; exit 1";
+        const r = await sandbox.exec(wait, { timeoutMs: 130_000 });
+        if (r.exitCode !== 0) return `Error: nothing answered on port ${PREVIEW_PORT}. Server log:\n${r.stdout}`;
+        emit({ type: "preview.ready" });
+        return `Preview is running on port ${PREVIEW_PORT}. The user can open it from the chat.`;
       }
       default:
         return `Unknown tool: ${call.name}`;

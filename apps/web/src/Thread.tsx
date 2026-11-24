@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "@agent/shared";
 
 // A chat is a list of items. We rebuild it from the events on every render, which is cheap.
 type Item =
   | { kind: "status" | "text" | "action" | "error"; text: string }
   | { kind: "user"; text: string; repoUrl?: string }
+  | { kind: "preview"; url: string }
   | { kind: "done"; summary: string; diff: string }
   | { kind: "command"; command: string; output: string };
 
@@ -18,6 +19,9 @@ function toItems(events: AgentEvent[]): Item[] {
         break;
       case "workspace.restored":
         items.push({ kind: "status", text: "Restored saved files" });
+        break;
+      case "preview.url":
+        items.push({ kind: "preview", url: e.url });
         break;
       case "run.completed":
         items.push({ kind: "done", summary: e.summary, diff: e.diff });
@@ -55,9 +59,11 @@ function toItems(events: AgentEvent[]): Item[] {
 }
 
 // `runId` is only set while this page has a live run; a chat opened from history has no zip to download.
-export function Thread(props: { runId?: string; running: boolean; events: AgentEvent[] }) {
-  const { runId, running, events } = props;
+export function Thread(props: { runId?: string; chatId?: string; running: boolean; events: AgentEvent[] }) {
+  const { runId, chatId, running, events } = props;
   const items = toItems(events);
+  const [stopped, setStopped] = useState<string[]>([]); // preview links the user has stopped
+  const lastPreview = items.map((it) => it.kind).lastIndexOf("preview");
 
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -87,6 +93,26 @@ export function Thread(props: { runId?: string; running: boolean; events: AgentE
                 )}
               </div>
             );
+          case "preview": {
+            // Like the zip, a preview only exists for a live run: its sandbox is gone once a saved chat is reopened.
+            const live = runId && i === lastPreview && !stopped.includes(item.url);
+            return live ? (
+              <div key={i} className="preview">
+                <a href={item.url} target="_blank" rel="noreferrer">Open preview ↗</a>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    setStopped([...stopped, item.url]);
+                    void fetch(`/chats/${chatId}/stop-preview`, { method: "POST" });
+                  }}
+                >
+                  Stop preview
+                </button>
+              </div>
+            ) : (
+              <div key={i} className="status">Preview ended</div>
+            );
+          }
           case "command":
             return (
               <details key={i} className="cmd" open={running && i === items.length - 1}>

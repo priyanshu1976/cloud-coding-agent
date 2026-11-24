@@ -12,8 +12,13 @@ export type AgentEvent =
   | { type: "tool.result"; name: string; output: string }
   | { type: "terminal.output"; chunk: string }
   | { type: "file.changed"; path: string }
+  | { type: "preview.ready" } // the agent's dev server answers on PREVIEW_PORT inside the sandbox
+  | { type: "preview.url"; url: string } // where the browser can open it
   | { type: "run.completed"; summary: string; diff: string }
   | { type: "run.failed"; error: string };
+
+/** The port a dev server must listen on (on 0.0.0.0) inside the sandbox to be previewed. */
+export const PREVIEW_PORT = 5173;
 
 /** The models you can pick for each provider. The first one is the default. */
 export const MODELS = {

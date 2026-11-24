@@ -46,7 +46,8 @@ export async function runAgent(opts: {
           content:
             `You are a coding agent. ${where}\n` +
             "Use the tools to complete the task. When you are done, reply with a short summary and no tool calls.\n" +
-            "Files are saved between chats, but node_modules is not: reinstall dependencies if you need them.\n\n" +
+            "Files are saved between chats, but node_modules is not: reinstall dependencies if you need them.\n" +
+            "If the task builds something with a web front end (plain HTML or a React/Vite app), finish by calling start_preview so the user can see it.\n\n" +
             `Task: ${task}`,
         },
       ];

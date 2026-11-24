@@ -1,6 +1,7 @@
 import express from "express";
 import { MODELS, type CreateRunRequest, type CreateRunResponse } from "@agent/shared";
 import { getChat, listChats } from "@agent/db";
+import { stopPreview } from "./preview";
 import { cancelRun, runs, startRun } from "./runs";
 
 const app = express();
@@ -44,6 +45,11 @@ app.get("/chats/:id", async (req, res) => {
     return;
   }
   res.json({ events: chat.events });
+});
+
+app.post("/chats/:id/stop-preview", (req, res) => {
+  stopPreview(req.params.id);
+  res.sendStatus(204);
 });
 
 // Live events (SSE). A reconnecting browser sends Last-Event-ID, so we replay only what it missed.

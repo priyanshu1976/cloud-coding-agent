@@ -8,12 +8,14 @@ import { restoreWorkspace, saveWorkspace } from "@agent/cloud";
 import { createChat, saveChat, type Chat } from "@agent/db";
 import { runAgent } from "@agent/harness";
 import { createSandbox, type Sandbox } from "@agent/sandbox";
-import type { AgentEvent, CreateRunRequest } from "@agent/shared";
+import { PREVIEW_PORT, type AgentEvent, type CreateRunRequest } from "@agent/shared";
+import { hasPreview, openPreview, stopPreview } from "./preview";
 
 export type Run = {
   events: AgentEvent[]; // the full log; a reconnecting browser replays from here
   listeners: Set<(eventIndex: number) => void>; // open SSE connections
   controller: AbortController;
+  chatId: string;
   sandbox?: Sandbox;
   zipPath?: string; // set once the run succeeds
 };
@@ -27,7 +29,8 @@ export async function startRun(req: CreateRunRequest, chat?: Chat) {
   const chatId = chat?.id ?? randomUUID();
   if (!chat) await createChat(chatId, req.task.slice(0, 60));
 
-  const run: Run = { events: [], listeners: new Set(), controller: new AbortController() };
+  const run: Run = { events: [], listeners: new Set(), controller: new AbortController(), chatId };
+  stopPreview(chatId); // the old sandbox is replaced by the one this run restores into
   runs.set(runId, run);
   void execute(runId, chatId, chat, run, req); // not awaited: the browser follows along over SSE
   return { runId, chatId };
@@ -35,6 +38,7 @@ export async function startRun(req: CreateRunRequest, chat?: Chat) {
 
 export function cancelRun(run: Run) {
   run.controller.abort();
+  stopPreview(run.chatId);
   void run.sandbox?.destroy(); // kills whatever command is running right now
 }
 
@@ -43,14 +47,23 @@ async function execute(id: string, chatId: string, chat: Chat | undefined, run: 
   const emit = (event: AgentEvent) => {
     run.events.push(event);
     run.listeners.forEach((send) => send(run.events.length - 1));
+    // The agent's dev server is up: give it a public link. The sandbox then outlives the run (see `finally`).
+    if (event.type === "preview.ready" && run.sandbox) {
+      const sandbox = run.sandbox;
+      previewing = openPreview(chatId, sandbox).then(
+        (url) => emit({ type: "preview.url", url }),
+        (err) => emit({ type: "agent.message", text: `Preview unavailable: ${err.message}` }),
+      );
+    }
   };
+  let previewing: Promise<void> | undefined;
 
   let messages: Message[] | undefined; // the model's history, saved only if the run succeeds
 
   try {
     emit({ type: "run.started", runId: id });
     emit({ type: "user.message", text: req.task, repoUrl: chat ? undefined : req.repoUrl });
-    run.sandbox = await createSandbox({ image: "cloud-agent-sandbox" });
+    run.sandbox = await createSandbox({ image: "cloud-agent-sandbox", publishPort: PREVIEW_PORT });
     emit({ type: "sandbox.ready" });
 
     // Continuing a chat: put its files back first.
@@ -86,6 +99,8 @@ async function execute(id: string, chatId: string, chat: Chat | undefined, run: 
   } finally {
     // Save before destroying: destroy takes a second, and the user may send the next message right away.
     await saveChat(chatId, run.events, messages).catch((err) => console.error("could not save chat", err));
-    await run.sandbox?.destroy();
+    await previewing;
+    // A live preview owns the sandbox now; it destroys it when it stops.
+    if (!run.sandbox || !hasPreview(chatId, run.sandbox)) await run.sandbox?.destroy();
   }
 }

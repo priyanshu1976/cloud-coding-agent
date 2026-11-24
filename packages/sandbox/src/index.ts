@@ -16,6 +16,8 @@ export interface Sandbox {
   download(containerPath: string, hostPath: string): Promise<void>;
   /** Copy a file from the host into the container. */
   upload(hostPath: string, containerPath: string): Promise<void>;
+  /** The host port (on 127.0.0.1) that maps to a container port published with `publishPort`. */
+  hostPort(containerPort: number): Promise<number>;
   destroy(): Promise<void>;
 }
 
@@ -56,6 +58,7 @@ export async function createSandbox(opts: {
   image: string;
   memory?: string;
   cpus?: number;
+  publishPort?: number; // container port to expose on a random 127.0.0.1 port (for previews)
 }): Promise<Sandbox> {
   const name = `agent-${randomUUID()}`;
 
@@ -66,6 +69,7 @@ export async function createSandbox(opts: {
       "--memory", opts.memory ?? "1g",
       "--cpus", String(opts.cpus ?? 1),
       "--pids-limit", "256",
+      ...(opts.publishPort ? ["-p", `127.0.0.1::${opts.publishPort}`] : []),
       opts.image, "sleep", "3600",
     ]),
     "docker run",
@@ -100,6 +104,14 @@ export async function createSandbox(opts: {
 
     async upload(hostPath, containerPath) {
       mustSucceed(await docker(["cp", hostPath, `${name}:${containerPath}`]), "docker cp");
+    },
+
+    async hostPort(containerPort) {
+      const result = await docker(["port", name, `${containerPort}/tcp`]);
+      mustSucceed(result, "docker port");
+      const port = Number(result.stdout.split("\n")[0].split(":").at(-1)); // "127.0.0.1:49153"
+      if (!port) throw new Error(`port ${containerPort} is not published`);
+      return port;
     },
 
     async destroy() {
