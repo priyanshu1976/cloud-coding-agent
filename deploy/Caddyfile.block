@@ -5,7 +5,8 @@ agent.priyanshuu.xyz {
 	}
 
 	# API and live events. No compression here, it would buffer the event stream.
-	handle /runs* /chats* {
+	@api path /runs* /chats*
+	handle @api {
 		reverse_proxy 127.0.0.1:3001 {
 			flush_interval -1
 		}
