@@ -87,7 +87,11 @@ header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
 /* Messages */
 .bubble.user { align-self: flex-end; max-width: 80%; background: var(--panel); padding: 9px 15px; border-radius: 18px; white-space: pre-wrap; }
 .bubble small { display: block; color: var(--muted); font-size: 12px; }
-.text { white-space: pre-wrap; }
+.thread p, .thread ul, .thread ol { margin: 0 0 8px; }
+.thread :not(pre) > code { padding: 1px 5px; border-radius: 5px; background: var(--panel); }
+.thread pre { overflow: auto; }
+.warn { color: var(--muted); font-size: 13px; }
+.warn::before { content: "⚠ "; }
 .status, .action, .working { color: var(--muted); font-size: 13px; }
 .action { font-family: var(--mono); }
 .error { white-space: pre-wrap; }

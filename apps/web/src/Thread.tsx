@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import type { AgentEvent } from "@agent/shared";
 
 // A chat is a list of items. We rebuild it from the events on every render, which is cheap.
 type Item =
-  | { kind: "status" | "text" | "action" | "error"; text: string }
+  | { kind: "status" | "text" | "action" | "error" | "warn"; text: string }
   | { kind: "user"; text: string; repoUrl?: string }
   | { kind: "preview"; url: string }
   | { kind: "done"; summary: string; diff: string }
@@ -24,7 +25,10 @@ function toItems(events: AgentEvent[]): Item[] {
         items.push({ kind: "preview", url: e.url });
         break;
       case "run.completed":
-        items.push({ kind: "done", summary: e.summary, diff: e.diff });
+        // The final reply was already shown as an agent message; don't print it twice.
+        const last = items.at(-1);
+        const repeated = last?.kind === "text" && last.text.trim() === e.summary.trim();
+        items.push({ kind: "done", summary: repeated ? "" : e.summary, diff: e.diff });
         break;
       case "sandbox.ready":
         items.push({ kind: "status", text: "Sandbox ready" });
@@ -48,7 +52,8 @@ function toItems(events: AgentEvent[]): Item[] {
         items.push({ kind: "action", text: `Edited ${e.path}` });
         break;
       case "tool.result":
-        if (e.output.startsWith("Error:")) items.push({ kind: "error", text: e.output });
+        // A failed tool call is usually retried by the agent, so show it quietly. Only a failed run is red.
+        if (e.output.startsWith("Error:")) items.push({ kind: "warn", text: `${e.name} failed: ${e.output.slice(7).split("\n")[0].slice(0, 160)}` });
         break;
       case "run.failed":
         items.push({ kind: "error", text: e.error });
@@ -84,7 +89,7 @@ export function Thread(props: { runId?: string; chatId?: string; running: boolea
           case "done":
             return (
               <div key={i}>
-                <div className="text">{item.summary}</div>
+                {item.summary && <Markdown>{item.summary}</Markdown>}
                 <Diff diff={item.diff} />
                 {runId && i === items.length - 1 && (
                   <a className="download" href={`/runs/${runId}/download`}>
@@ -113,6 +118,8 @@ export function Thread(props: { runId?: string; chatId?: string; running: boolea
               <div key={i} className="status">Preview ended</div>
             );
           }
+          case "text":
+            return <Markdown key={i}>{item.text}</Markdown>;
           case "command":
             return (
               <details key={i} className="cmd" open={running && i === items.length - 1}>

@@ -15,10 +15,10 @@ export const tools: ToolDef[] = [
   },
   {
     name: "read_file",
-    description: "Read a text file. The path is relative to the repo root.",
+    description: "Read a text file. The path is relative to the repo root. Optionally read only `limit` lines starting at line `offset` (1-based).",
     parameters: {
       type: "object",
-      properties: { path: { type: "string" } },
+      properties: { path: { type: "string" }, offset: { type: "integer" }, limit: { type: "integer" } },
       required: ["path"],
     },
   },
@@ -57,6 +57,21 @@ export const tools: ToolDef[] = [
 ];
 
 const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`; // safe to paste into a shell command
+/** Tell the model where its old_string went wrong, so the retry can succeed instead of guessing again. */
+function notFoundHint(text: string, old: string, path: string): string {
+  const wanted = old.split("\n");
+  const first = wanted.find((l) => l.trim())?.trim();
+  const lines = text.split("\n");
+  const at = first ? lines.findIndex((l) => l.trim() === first) : -1;
+  if (at < 0) {
+    return `Error: old_string not found in ${path}, and its first line is not in the file. Use read_file to see the current contents.`;
+  }
+  return (
+    `Error: old_string not found in ${path}. Its first line matches line ${at + 1}, where the file actually reads (whitespace exact):\n` +
+    `${lines.slice(at, at + wanted.length).join("\n")}\nCopy the text exactly, including indentation.`
+  );
+}
+
 const MAX_OUTPUT = 10_000; // characters sent back to the model
 
 // Keep the start and the end: errors usually show up at the end of command output.
@@ -88,8 +103,13 @@ export async function runTool(
         });
         return `${r.stdout}${r.stderr}\n[exit code ${r.exitCode}]`;
       }
-      case "read_file":
-        return sandbox.readFile(input.path);
+      case "read_file": {
+        const text = await sandbox.readFile(input.path);
+        if (!input.offset && !input.limit) return text;
+        const lines = text.split("\n");
+        const start = Math.max(Number(input.offset) || 1, 1) - 1;
+        return lines.slice(start, start + (Number(input.limit) || lines.length)).join("\n");
+      }
       case "write_file":
         await sandbox.writeFile(input.path, input.content);
         emit({ type: "file.changed", path: input.path });
@@ -97,6 +117,7 @@ export async function runTool(
       case "edit_file": {
         const text = await sandbox.readFile(input.path);
         const n = input.old_string ? text.split(input.old_string).length - 1 : 0;
+        if (n === 0) return notFoundHint(text, input.old_string ?? "", input.path);
         if (n !== 1) return `Error: old_string found ${n} times in ${input.path}, expected exactly 1`;
         // function replacer: avoids `$&`-style patterns in new_string being interpreted
         await sandbox.writeFile(input.path, text.replace(input.old_string, () => input.new_string));

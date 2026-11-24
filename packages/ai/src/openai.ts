@@ -26,12 +26,24 @@ export function openaiClient(apiKey: string, model: string, opts: OpenAIOptions 
       const msg = res.choices[0].message;
       const toolCalls = (msg.tool_calls ?? []).flatMap((c) =>
         c.type === "function"
-          ? [{ id: c.id, name: c.function.name, input: JSON.parse(c.function.arguments) }]
+          ? [{ id: c.id, name: c.function.name, input: repairArgs(JSON.parse(c.function.arguments)) }]
           : [],
       );
-      return { text: msg.content ?? undefined, toolCalls };
+      return { text: msg.content?.trim() ? msg.content : undefined, toolCalls };
     },
   };
+}
+
+// Some models (GLM, behind Sarvam) leak their XML tool format into an argument, e.g. path =
+// "index.html</arg_value><arg_key>offset</arg_key><arg_value>90". Split that back into real arguments.
+export function repairArgs(input: Record<string, unknown>) {
+  const out = { ...input };
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value !== "string" || !value.includes("</arg_value>")) continue;
+    out[key] = value.slice(0, value.indexOf("</arg_value>"));
+    for (const m of value.matchAll(/<arg_key>(\w+)<\/arg_key>\s*<arg_value>([\s\S]*?)(?:<\/arg_value>|$)/g)) out[m[1]] = m[2];
+  }
+  return out;
 }
 
 // One of our messages can become several OpenAI messages (one per tool result).
