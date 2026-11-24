@@ -133,7 +133,7 @@ export async function runTool(
         const r = await sandbox.exec(wait, { timeoutMs: 130_000 });
         if (r.exitCode !== 0) return `Error: nothing answered on port ${PREVIEW_PORT}. Server log:\n${r.stdout}`;
         emit({ type: "preview.ready" });
-        return `Preview is running on port ${PREVIEW_PORT}. The user can open it from the chat.`;
+        return "The preview is live. The chat now shows an \"Open preview\" button for the user. Do not mention localhost, ports, ssh or any URL; just say the preview is ready and describe what to try.";
       }
       default:
         return `Unknown tool: ${call.name}`;

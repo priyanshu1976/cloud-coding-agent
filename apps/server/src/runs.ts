@@ -16,6 +16,7 @@ export type Run = {
   listeners: Set<(eventIndex: number) => void>; // open SSE connections
   controller: AbortController;
   chatId: string;
+  host?: string; // hostname the browser used, so the preview link points at the same machine
   sandbox?: Sandbox;
   zipPath?: string; // set once the run succeeds
 };
@@ -24,12 +25,12 @@ export type Run = {
 export const runs = new Map<string, Run>();
 
 /** `chat` is the existing chat to continue, or undefined to start a new one. */
-export async function startRun(req: CreateRunRequest, chat?: Chat) {
+export async function startRun(req: CreateRunRequest, chat?: Chat, host?: string) {
   const runId = randomUUID();
   const chatId = chat?.id ?? randomUUID();
   if (!chat) await createChat(chatId, req.task.slice(0, 60));
 
-  const run: Run = { events: [], listeners: new Set(), controller: new AbortController(), chatId };
+  const run: Run = { events: [], listeners: new Set(), controller: new AbortController(), chatId, host };
   stopPreview(chatId); // the old sandbox is replaced by the one this run restores into
   runs.set(runId, run);
   void execute(runId, chatId, chat, run, req); // not awaited: the browser follows along over SSE
@@ -50,7 +51,7 @@ async function execute(id: string, chatId: string, chat: Chat | undefined, run: 
     // The agent's dev server is up: give it a public link. The sandbox then outlives the run (see `finally`).
     if (event.type === "preview.ready" && run.sandbox) {
       const sandbox = run.sandbox;
-      previewing = openPreview(chatId, sandbox).then(
+      previewing = openPreview(chatId, sandbox, run.host).then(
         (url) => emit({ type: "preview.url", url }),
         (err) => emit({ type: "agent.message", text: `Preview unavailable: ${err.message}` }),
       );

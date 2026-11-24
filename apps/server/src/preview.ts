@@ -10,7 +10,6 @@ import type { Sandbox } from "@agent/sandbox";
 const FIRST_PORT = 4000;
 const LAST_PORT = 4099;
 const IDLE_MS = 30 * 60_000; // no requests for this long: stop the preview and its sandbox
-const PUBLIC_HOST = process.env.PREVIEW_HOST ?? "localhost";
 
 type Preview = { sandbox: Sandbox; url: string; stop: () => void };
 
@@ -20,7 +19,8 @@ const previews = new Map<string, Preview>();
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 /** Open a public port for this sandbox's dev server. Returns the link to show the user. */
-export async function openPreview(chatId: string, sandbox: Sandbox): Promise<string> {
+// `host` is the name the user's browser used to reach this server; PREVIEW_HOST overrides it.
+export async function openPreview(chatId: string, sandbox: Sandbox, host = "localhost"): Promise<string> {
   const existing = previews.get(chatId);
   if (existing?.sandbox === sandbox) return existing.url; // the agent restarted its server: same link
   existing?.stop();
@@ -93,7 +93,7 @@ export async function openPreview(chatId: string, sandbox: Sandbox): Promise<str
     if (previews.get(chatId) === preview) previews.delete(chatId);
     void sandbox.destroy();
   };
-  const url = `http://${PUBLIC_HOST}:${port}/?t=${token}`;
+  const url = `http://${process.env.PREVIEW_HOST ?? host}:${port}/?t=${token}`;
   const preview: Preview = { sandbox, url, stop };
   previews.set(chatId, preview);
   touch();

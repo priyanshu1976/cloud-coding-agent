@@ -30,7 +30,7 @@ app.post("/runs", async (req, res) => {
     return;
   }
 
-  const response: CreateRunResponse = await startRun(b as CreateRunRequest, chat);
+  const response: CreateRunResponse = await startRun(b as CreateRunRequest, chat, req.hostname);
   res.json(response);
 });
 
