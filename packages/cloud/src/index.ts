@@ -1,6 +1,6 @@
 // Saves a chat's sandbox files to Cloudflare R2 and puts them back later.
 // R2 speaks the S3 protocol, so we use the S3 client. One tar.gz per chat.
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,6 +19,11 @@ const r2 = new S3Client({
 });
 
 const keyFor = (chatId: string) => `chats/${chatId}/workspace.tar.gz`;
+
+/** Remove the chat's saved files (deleting a missing object is not an error in S3/R2). */
+export async function deleteWorkspace(chatId: string) {
+  await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: keyFor(chatId) }));
+}
 
 /** Pack /workspace (with .git, without node_modules) and upload it. */
 export async function saveWorkspace(chatId: string, sandbox: Sandbox) {

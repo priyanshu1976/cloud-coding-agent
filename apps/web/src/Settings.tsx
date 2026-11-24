@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { MODELS, type Model, type Provider } from "@agent/shared";
 
 export type SettingsValue = { provider: Provider; model: Model; apiKey: string };
@@ -9,15 +10,32 @@ const PROVIDER_LABEL: Record<Provider, string> = {
   sarvam: "Sarvam",
 };
 
+export function providerLabel(p: Provider) {
+  return PROVIDER_LABEL[p];
+}
+
+/** A modal (native <dialog>: focus trap, Esc to close). */
 export function Settings({
+  open,
   value,
   onChange,
+  onClose,
 }: {
+  open: boolean;
   value: SettingsValue;
   onChange: (value: SettingsValue) => void;
+  onClose: () => void;
 }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = dialog.current!;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+
   return (
-    <div className="settings">
+    <dialog ref={dialog} className="modal" onClose={onClose} onClick={(e) => e.target === dialog.current && onClose()}>
+      <h2>Settings</h2>
       <label>
         Provider
         <select
@@ -55,6 +73,9 @@ export function Settings({
           onChange={(e) => onChange({ ...value, apiKey: e.target.value })}
         />
       </label>
-    </div>
+      <button className="primary" onClick={onClose}>
+        Done
+      </button>
+    </dialog>
   );
 }

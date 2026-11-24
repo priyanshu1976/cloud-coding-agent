@@ -1,23 +1,30 @@
 :root {
   color-scheme: light dark;
   --bg: #ffffff;
+  --sidebar: #f7f7f8;
   --panel: #f4f4f5;
+  --hover: #ececee;
   --text: #18181b;
   --muted: #71717a;
   --border: #e4e4e7;
+  --accent: #4f46e5;
   --add-bg: #e6ffec;
   --add-fg: #1a7f37;
   --del-bg: #ffebe9;
   --del-fg: #cf222e;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --column: 760px; /* width of the chat column */
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0d0d0f;
-    --panel: #18181b;
+    --sidebar: #111113;
+    --panel: #1b1b1f;
+    --hover: #232328;
     --text: #ececf0;
     --muted: #8b8b94;
     --border: #2a2a2f;
+    --accent: #8b87ff;
     --add-bg: #12261a;
     --add-fg: #56d364;
     --del-bg: #2d1517;
@@ -26,29 +33,64 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, sans-serif; }
 input, select, textarea, button { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
 code, pre { font-family: var(--mono); font-size: 13px; }
 
-/* Layout: header, a scrolling middle, composer pinned to the bottom. */
-.app { height: 100vh; max-width: 760px; margin: 0 auto; padding: 0 16px; display: flex; flex-direction: column; }
-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
-.ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
-.hero { flex: 1; display: grid; place-items: center; }
-.hero h1 { font-size: 28px; font-weight: 600; }
-.thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 0 16px; }
+/* Layout: sidebar on the left, the chat on the right. */
+.app { height: 100vh; display: flex; }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+.icon { width: 36px; height: 36px; border: 0; border-radius: 8px; background: none; font-size: 18px; }
+.icon:hover { background: var(--hover); }
+.menu { display: none; }
+.model-chip { border: 0; border-radius: 8px; padding: 6px 12px; background: none; color: var(--muted); font-size: 14px; }
+.model-chip:hover { background: var(--hover); color: var(--text); }
+
+/* The scrolling areas span the full width (so the scrollbar sits at the edge) but their content stays in a centered column. */
+.thread, .hero { padding-inline: max(16px, calc((100% - var(--column)) / 2)); }
+.thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-block: 8px 24px; }
+.bottom { width: min(var(--column), 100%); margin: 0 auto; padding: 0 16px 16px; }
 .error { color: var(--del-fg); margin: 0 0 8px; }
 
-.settings { display: flex; gap: 12px; padding: 12px; margin-bottom: 8px; background: var(--panel); border-radius: 12px; }
-.settings label { flex: 1; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
-.settings input, .settings select { padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+/* Sidebar */
+.sidebar { width: 268px; flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--sidebar); border-right: 1px solid var(--border); }
+.brand { padding: 6px 10px; font-weight: 600; font-size: 16px; }
+.new-chat { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-weight: 500; }
+.new-chat:hover:not(:disabled) { background: var(--hover); }
+.new-chat:disabled { opacity: 0.5; }
+.chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.empty { margin: 12px 10px; color: var(--muted); font-size: 13px; }
+.chat-row { display: flex; align-items: center; border-radius: 10px; }
+.chat-row:hover, .chat-row.active { background: var(--hover); }
+.chat-row.active { font-weight: 500; }
+.chat-title { flex: 1; min-width: 0; padding: 9px 10px; border: 0; background: none; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-title:disabled { opacity: 0.45; }
+.chat-delete { display: grid; place-items: center; width: 30px; height: 30px; margin-right: 4px; border: 0; border-radius: 8px; background: none; color: var(--muted); opacity: 0; }
+.chat-row:hover .chat-delete, .chat-delete:focus-visible { opacity: 1; }
+.chat-delete:hover:not(:disabled) { color: var(--del-fg); background: var(--bg); }
+.chat-delete:disabled { opacity: 0.2; }
+.settings-btn { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 10px; background: none; text-align: left; }
+.settings-btn:hover { background: var(--hover); }
+.settings-btn small { display: block; color: var(--muted); font-size: 12px; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scrim { display: none; }
+
+/* Home screen */
+.hero { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 24px; }
+.hero h1 { margin: 0; font-size: 30px; font-weight: 600; text-align: center; }
+.suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.suggestions button { padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font-size: 13px; }
+.suggestions button:hover { background: var(--hover); color: var(--text); }
 
 /* Messages */
-.bubble.user { align-self: flex-end; max-width: 80%; background: var(--panel); padding: 8px 14px; border-radius: 16px; white-space: pre-wrap; }
+.bubble.user { align-self: flex-end; max-width: 80%; background: var(--panel); padding: 9px 15px; border-radius: 18px; white-space: pre-wrap; }
 .bubble small { display: block; color: var(--muted); font-size: 12px; }
 .text { white-space: pre-wrap; }
 .status, .action, .working { color: var(--muted); font-size: 13px; }
 .action { font-family: var(--mono); }
+.error { white-space: pre-wrap; }
 .working::before { content: "●"; margin-right: 6px; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: 0.2; } }
 
@@ -64,15 +106,37 @@ details pre { margin: 0; padding: 8px 12px; max-height: 260px; overflow: auto; b
 .del { background: var(--del-bg); }
 .add-count { color: var(--add-fg); margin-left: 12px; }
 .del-count { color: var(--del-fg); margin-left: 6px; }
-.download { align-self: flex-start; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
-
+.download, .preview a { padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+.download { align-self: flex-start; }
+.download:hover, .preview a:hover { background: var(--hover); }
 .preview { display: flex; align-items: center; gap: 10px; }
-.preview a { padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+.preview a { background: var(--accent); border-color: var(--accent); color: #fff; }
+.preview a:hover { background: var(--accent); opacity: 0.9; }
+.ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; }
+.ghost:hover { background: var(--hover); }
 
 /* Composer */
-.composer { margin: 8px 0 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); }
-.composer .repo { width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--muted); font-family: var(--mono); font-size: 12px; outline: none; }
-.composer .row { display: flex; align-items: flex-end; gap: 8px; padding: 8px 8px 8px 14px; }
-.composer textarea { flex: 1; border: 0; background: none; resize: none; outline: none; field-sizing: content; max-height: 160px; }
-.round { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); cursor: pointer; }
-.round:disabled { opacity: 0.3; cursor: default; }
+.composer { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); box-shadow: 0 1px 3px rgb(0 0 0 / 6%); }
+.composer:focus-within { border-color: var(--muted); }
+.composer .repo { width: 100%; padding: 10px 16px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--muted); font-family: var(--mono); font-size: 12px; outline: none; }
+.composer .row { display: flex; align-items: flex-end; gap: 8px; padding: 10px 10px 10px 16px; }
+.composer textarea { flex: 1; border: 0; background: none; resize: none; outline: none; field-sizing: content; max-height: 200px; line-height: 1.5; }
+.round { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--text); color: var(--bg); }
+.round:disabled { opacity: 0.25; }
+
+/* Settings modal */
+.modal { width: min(420px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); color: var(--text); }
+.modal::backdrop { background: rgb(0 0 0 / 45%); }
+.modal h2 { margin: 0 0 16px; font-size: 18px; }
+.modal label { display: grid; gap: 4px; margin-bottom: 14px; font-size: 13px; color: var(--muted); }
+.modal select, .modal input { padding: 9px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.primary { width: 100%; padding: 10px; border: 0; border-radius: 10px; background: var(--text); color: var(--bg); font-weight: 500; }
+
+/* Small screens: the sidebar becomes a drawer. */
+@media (max-width: 768px) {
+  .menu { display: block; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 20; transform: translateX(-100%); transition: transform 0.2s; }
+  .sidebar.open { transform: none; }
+  .scrim { display: block; position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / 40%); }
+  .chat-delete { opacity: 1; }
+}

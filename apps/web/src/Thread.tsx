@@ -33,7 +33,7 @@ function toItems(events: AgentEvent[]): Item[] {
         items.push({ kind: "status", text: `Cloned repo (${e.fileCount} files)` });
         break;
       case "agent.message":
-        items.push({ kind: "text", text: e.text });
+        if (e.text.trim()) items.push({ kind: "text", text: e.text });
         break;
       case "tool.call":
         if (e.name === "run_command") items.push({ kind: "command", command: input.command, output: "" });

@@ -1,6 +1,7 @@
 import express from "express";
 import { MODELS, type CreateRunRequest, type CreateRunResponse } from "@agent/shared";
-import { getChat, listChats } from "@agent/db";
+import { deleteWorkspace } from "@agent/cloud";
+import { deleteChat, getChat, listChats } from "@agent/db";
 import { stopPreview } from "./preview";
 import { cancelRun, runs, startRun } from "./runs";
 
@@ -45,6 +46,13 @@ app.get("/chats/:id", async (req, res) => {
     return;
   }
   res.json({ events: chat.events });
+});
+
+app.delete("/chats/:id", async (req, res) => {
+  stopPreview(req.params.id);
+  await deleteChat(req.params.id);
+  await deleteWorkspace(req.params.id).catch((err) => console.error("could not delete files", err));
+  res.sendStatus(204);
 });
 
 app.post("/chats/:id/stop-preview", (req, res) => {

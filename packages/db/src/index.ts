@@ -36,6 +36,11 @@ export async function saveChat(id: string, events: AgentEvent[], messages?: Mess
   ]);
 }
 
+/** Delete a chat; its events go with it (onDelete: Cascade). Missing chats are fine. */
+export async function deleteChat(id: string) {
+  await prisma.chat.deleteMany({ where: { id } });
+}
+
 export async function listChats(): Promise<ChatSummary[]> {
   return prisma.chat.findMany({
     select: { id: true, title: true },
