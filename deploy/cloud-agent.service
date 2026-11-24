@@ -9,6 +9,8 @@ WorkingDirectory=/opt/cloud-agent
 Environment=PATH=/opt/node22/bin:/usr/bin:/bin
 # Only Caddy (which asks for a password) may reach the server.
 Environment=HOST=127.0.0.1
+# DATABASE_URL (Neon) and the R2_* settings. Lives outside /opt/cloud-agent because CI's rsync --delete wipes that folder.
+EnvironmentFile=/etc/cloud-agent.env
 ExecStart=/opt/cloud-agent/node_modules/.bin/tsx apps/server/src/index.ts
 Restart=always
 RestartSec=3

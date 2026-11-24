@@ -4,5 +4,5 @@ import { defineConfig } from "vite";
 // In dev, send API calls to the server so the browser sees a single origin (no CORS).
 export default defineConfig({
   plugins: [react()],
-  server: { proxy: { "/runs": "http://localhost:3001" } },
+  server: { proxy: { "/runs": "http://localhost:3001", "/chats": "http://localhost:3001" } },
 });

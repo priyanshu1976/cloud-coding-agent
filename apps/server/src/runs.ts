@@ -1,8 +1,11 @@
 // A "run" is one agent task: its event log, who is listening, and its result zip.
+// A chat is a series of runs. Its history is in Neon and its files are in R2 (see @agent/db and @agent/cloud).
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createLLM } from "@agent/ai";
+import { createLLM, type Message } from "@agent/ai";
+import { restoreWorkspace, saveWorkspace } from "@agent/cloud";
+import { createChat, saveChat, type Chat } from "@agent/db";
 import { runAgent } from "@agent/harness";
 import { createSandbox, type Sandbox } from "@agent/sandbox";
 import type { AgentEvent, CreateRunRequest } from "@agent/shared";
@@ -18,12 +21,16 @@ export type Run = {
 // ponytail: in memory and never cleaned up. Add expiry (and delete the zips) if the server runs for days.
 export const runs = new Map<string, Run>();
 
-export function startRun(req: CreateRunRequest): string {
-  const id = randomUUID();
+/** `chat` is the existing chat to continue, or undefined to start a new one. */
+export async function startRun(req: CreateRunRequest, chat?: Chat) {
+  const runId = randomUUID();
+  const chatId = chat?.id ?? randomUUID();
+  if (!chat) await createChat(chatId, req.task.slice(0, 60));
+
   const run: Run = { events: [], listeners: new Set(), controller: new AbortController() };
-  runs.set(id, run);
-  void execute(id, run, req); // not awaited: the browser follows along over SSE
-  return id;
+  runs.set(runId, run);
+  void execute(runId, chatId, chat, run, req); // not awaited: the browser follows along over SSE
+  return { runId, chatId };
 }
 
 export function cancelRun(run: Run) {
@@ -31,19 +38,28 @@ export function cancelRun(run: Run) {
   void run.sandbox?.destroy(); // kills whatever command is running right now
 }
 
-async function execute(id: string, run: Run, req: CreateRunRequest) {
+// ponytail: two runs in the same chat at once would overwrite each other. The UI only allows one at a time.
+async function execute(id: string, chatId: string, chat: Chat | undefined, run: Run, req: CreateRunRequest) {
   const emit = (event: AgentEvent) => {
     run.events.push(event);
     run.listeners.forEach((send) => send(run.events.length - 1));
   };
 
+  let messages: Message[] | undefined; // the model's history, saved only if the run succeeds
+
   try {
     emit({ type: "run.started", runId: id });
+    emit({ type: "user.message", text: req.task, repoUrl: chat ? undefined : req.repoUrl });
     run.sandbox = await createSandbox({ image: "cloud-agent-sandbox" });
     emit({ type: "sandbox.ready" });
 
-    const { summary, diff } = await runAgent({
+    // Continuing a chat: put its files back first.
+    const restored = chat ? await restoreWorkspace(chatId, run.sandbox) : false;
+    if (restored) emit({ type: "workspace.restored" });
+
+    const result = await runAgent({
       repoUrl: req.repoUrl,
+      history: restored ? chat!.messages : undefined,
       task: req.task,
       llm: createLLM({ provider: req.provider, apiKey: req.apiKey, model: req.model }),
       sandbox: run.sandbox,
@@ -57,7 +73,9 @@ async function execute(id: string, run: Run, req: CreateRunRequest) {
     await run.sandbox.download("/tmp/result.zip", zipPath);
     run.zipPath = zipPath;
 
-    emit({ type: "run.completed", summary, diff });
+    await saveWorkspace(chatId, run.sandbox); // so the next message in this chat can continue from here
+    messages = result.messages;
+    emit({ type: "run.completed", summary: result.summary, diff: result.diff });
   } catch (err) {
     const error = run.controller.signal.aborted
       ? "Cancelled"
@@ -66,6 +84,8 @@ async function execute(id: string, run: Run, req: CreateRunRequest) {
         : String(err);
     emit({ type: "run.failed", error });
   } finally {
+    // Save before destroying: destroy takes a second, and the user may send the next message right away.
+    await saveChat(chatId, run.events, messages).catch((err) => console.error("could not save chat", err));
     await run.sandbox?.destroy();
   }
 }

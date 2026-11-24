@@ -3,7 +3,9 @@
 /** Everything a run reports, in order. The server streams these to the browser as SSE. */
 export type AgentEvent =
   | { type: "run.started"; runId: string }
+  | { type: "user.message"; text: string; repoUrl?: string }
   | { type: "sandbox.ready" }
+  | { type: "workspace.restored" } // the chat's saved files were loaded from R2
   | { type: "clone.done"; fileCount: number }
   | { type: "agent.message"; text: string }
   | { type: "tool.call"; name: string; input: unknown }
@@ -26,11 +28,15 @@ export type Model = (typeof MODELS)[Provider][number];
 
 /** POST /runs */
 export type CreateRunRequest = {
-  repoUrl?: string; // leave out to start a new project from scratch
+  chatId?: string; // continue this chat; leave out to start a new one
+  repoUrl?: string; // leave out to start a new project from scratch (ignored when continuing a chat)
   task: string;
   provider: Provider;
   apiKey: string;
   model: Model;
 };
 
-export type CreateRunResponse = { runId: string };
+export type CreateRunResponse = { runId: string; chatId: string };
+
+/** One row of the chat list. */
+export type ChatSummary = { id: string; title: string };

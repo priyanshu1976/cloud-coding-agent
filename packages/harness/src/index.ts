@@ -9,17 +9,20 @@ const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`; // safe to paste
 
 export async function runAgent(opts: {
   repoUrl?: string; // no repoUrl = start a new project in an empty repo
+  history?: Message[]; // continuing a chat: the workspace is already restored, so skip clone/init
   task: string;
   llm: LLMClient;
   sandbox: Sandbox;
   emit: (e: AgentEvent) => void;
   maxSteps?: number;
   signal?: AbortSignal;
-}): Promise<{ summary: string; diff: string }> {
-  const { repoUrl, task, llm, sandbox, emit, maxSteps = 30, signal } = opts;
+}): Promise<{ summary: string; diff: string; messages: Message[] }> {
+  const { repoUrl, history, task, llm, sandbox, emit, maxSteps = 30, signal } = opts;
 
   signal?.throwIfAborted();
-  if (repoUrl) {
+  if (history) {
+    // continuing a chat: the files are already in place
+  } else if (repoUrl) {
     const clone = await sandbox.exec(`git clone --depth 1 -- ${quote(repoUrl)} .`, {
       timeoutMs: 300_000,
     });
@@ -35,18 +38,22 @@ export async function runAgent(opts: {
   const where = repoUrl
     ? "A git repo is checked out in your current directory."
     : "Your current directory is an empty git repo. Create the project from scratch here.";
-  const messages: Message[] = [
-    {
-      role: "user",
-      content:
-        `You are a coding agent. ${where}\n` +
-        "Use the tools to complete the task. When you are done, reply with a short summary and no tool calls.\n\n" +
-        `Task: ${task}`,
-    },
-  ];
+  const messages: Message[] = history
+    ? [...history, { role: "user", content: `Task: ${task}` }]
+    : [
+        {
+          role: "user",
+          content:
+            `You are a coding agent. ${where}\n` +
+            "Use the tools to complete the task. When you are done, reply with a short summary and no tool calls.\n" +
+            "Files are saved between chats, but node_modules is not: reinstall dependencies if you need them.\n\n" +
+            `Task: ${task}`,
+        },
+      ];
 
   let summary = "Stopped: reached the maximum number of steps.";
-
+  
+  // ! this is the main harness
   for (let step = 0; step < maxSteps; step++) {
     signal?.throwIfAborted();
     const reply = await llm.chat(messages, tools);
@@ -70,5 +77,5 @@ export async function runAgent(opts: {
 
   // `git add -A` first so new files show up in the diff too.
   const diff = await sandbox.exec("git add -A && git diff --cached");
-  return { summary, diff: diff.stdout };
+  return { summary, diff: diff.stdout, messages };
 }

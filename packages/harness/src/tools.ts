@@ -31,6 +31,16 @@ export const tools: ToolDef[] = [
       required: ["path", "content"],
     },
   },
+  {
+    name: "edit_file",
+    description:
+      "Edit a file by replacing one exact occurrence of old_string with new_string. Fails if old_string is missing or appears more than once, so include enough context to be unique.",
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string" }, old_string: { type: "string" }, new_string: { type: "string" } },
+      required: ["path", "old_string", "new_string"],
+    },
+  },
 ];
 
 const MAX_OUTPUT = 10_000; // characters sent back to the model
@@ -70,6 +80,15 @@ export async function runTool(
         await sandbox.writeFile(input.path, input.content);
         emit({ type: "file.changed", path: input.path });
         return `Wrote ${input.path}`;
+      case "edit_file": {
+        const text = await sandbox.readFile(input.path);
+        const n = input.old_string ? text.split(input.old_string).length - 1 : 0;
+        if (n !== 1) return `Error: old_string found ${n} times in ${input.path}, expected exactly 1`;
+        // function replacer: avoids `$&`-style patterns in new_string being interpreted
+        await sandbox.writeFile(input.path, text.replace(input.old_string, () => input.new_string));
+        emit({ type: "file.changed", path: input.path });
+        return `Edited ${input.path}`;
+      }
       default:
         return `Unknown tool: ${call.name}`;
     }

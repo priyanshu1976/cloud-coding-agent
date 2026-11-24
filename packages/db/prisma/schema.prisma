@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// One chat = a series of runs. `messages` is what the model has seen, so the agent can carry on.
+model Chat {
+  id        String      @id
+  title     String
+  messages  Json        @default("[]")
+  updatedAt DateTime    @updatedAt
+  events    ChatEvent[]
+}
+
+// What the browser shows, one row per event, in order.
+model ChatEvent {
+  id     Int    @id @default(autoincrement())
+  chatId String
+  data   Json
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+}

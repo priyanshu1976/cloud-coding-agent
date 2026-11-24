@@ -1,0 +1,20 @@
+{
+  "name": "@agent/db",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@agent/ai": "workspace:*",
+    "@agent/shared": "workspace:*",
+    "@prisma/adapter-neon": "7.10.1",
+    "@prisma/client": "7.10.1"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
+  }
+}

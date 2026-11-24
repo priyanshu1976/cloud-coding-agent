@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@agent/ai": "workspace:*",
+    "@agent/cloud": "workspace:*",
+    "@agent/db": "workspace:*",
     "@agent/harness": "workspace:*",
     "@agent/sandbox": "workspace:*",
     "@agent/shared": "workspace:*",

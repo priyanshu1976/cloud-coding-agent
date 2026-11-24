@@ -4,6 +4,8 @@ import type { AgentEvent } from "@agent/shared";
 // A chat is a list of items. We rebuild it from the events on every render, which is cheap.
 type Item =
   | { kind: "status" | "text" | "action" | "error"; text: string }
+  | { kind: "user"; text: string; repoUrl?: string }
+  | { kind: "done"; summary: string; diff: string }
   | { kind: "command"; command: string; output: string };
 
 function toItems(events: AgentEvent[]): Item[] {
@@ -11,6 +13,15 @@ function toItems(events: AgentEvent[]): Item[] {
   for (const e of events) {
     const input = (e.type === "tool.call" ? e.input : {}) as Record<string, string>;
     switch (e.type) {
+      case "user.message":
+        items.push({ kind: "user", text: e.text, repoUrl: e.repoUrl });
+        break;
+      case "workspace.restored":
+        items.push({ kind: "status", text: "Restored saved files" });
+        break;
+      case "run.completed":
+        items.push({ kind: "done", summary: e.summary, diff: e.diff });
+        break;
       case "sandbox.ready":
         items.push({ kind: "status", text: "Sandbox ready" });
         break;
@@ -43,11 +54,10 @@ function toItems(events: AgentEvent[]): Item[] {
   return items;
 }
 
-export function Thread(props: { runId: string; repoUrl: string; task: string; events: AgentEvent[] }) {
-  const { runId, repoUrl, task, events } = props;
+// `runId` is only set while this page has a live run; a chat opened from history has no zip to download.
+export function Thread(props: { runId?: string; running: boolean; events: AgentEvent[] }) {
+  const { runId, running, events } = props;
   const items = toItems(events);
-  const last = events.at(-1);
-  const finished = last?.type === "run.completed" || last?.type === "run.failed";
 
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -56,16 +66,30 @@ export function Thread(props: { runId: string; repoUrl: string; task: string; ev
 
   return (
     <div className="thread">
-      <div className="bubble user">
-        {task}
-        <small>{repoUrl || "New project (no repo)"}</small>
-      </div>
-
       {items.map((item, i) => {
         switch (item.kind) {
+          case "user":
+            return (
+              <div key={i} className="bubble user">
+                {item.text}
+                {i === 0 && <small>{item.repoUrl || "New project (no repo)"}</small>}
+              </div>
+            );
+          case "done":
+            return (
+              <div key={i}>
+                <div className="text">{item.summary}</div>
+                <Diff diff={item.diff} />
+                {runId && i === items.length - 1 && (
+                  <a className="download" href={`/runs/${runId}/download`}>
+                    Download zip
+                  </a>
+                )}
+              </div>
+            );
           case "command":
             return (
-              <details key={i} className="cmd" open={!finished && i === items.length - 1}>
+              <details key={i} className="cmd" open={running && i === items.length - 1}>
                 <summary>
                   Ran <code>{item.command}</code>
                 </summary>
@@ -81,17 +105,7 @@ export function Thread(props: { runId: string; repoUrl: string; task: string; ev
         }
       })}
 
-      {!finished && <div className="working">Working…</div>}
-
-      {last?.type === "run.completed" && (
-        <>
-          <div className="text">{last.summary}</div>
-          <Diff diff={last.diff} />
-          <a className="download" href={`/runs/${runId}/download`}>
-            Download zip
-          </a>
-        </>
-      )}
+      {running && <div className="working">Working…</div>}
       <div ref={bottom} />
     </div>
   );

@@ -2,10 +2,12 @@ import { useState } from "react";
 
 export function Composer({
   running,
+  inChat,
   onSend,
   onStop,
 }: {
   running: boolean;
+  inChat: boolean; // a chat is open: it already has its files, so there is no repo to choose
   onSend: (repoUrl: string, task: string) => void;
   onStop: () => void;
 }) {
@@ -21,12 +23,14 @@ export function Composer({
 
   return (
     <div className="composer">
-      <input
-        className="repo"
-        placeholder="GitHub repo URL (optional). Leave empty to start a new project"
-        value={repoUrl}
-        onChange={(e) => setRepoUrl(e.target.value)}
-      />
+      {!inChat && (
+        <input
+          className="repo"
+          placeholder="GitHub repo URL (optional). Leave empty to start a new project"
+          value={repoUrl}
+          onChange={(e) => setRepoUrl(e.target.value)}
+        />
+      )}
       <div className="row">
         <textarea
           rows={1}

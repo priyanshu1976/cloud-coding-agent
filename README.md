@@ -139,7 +139,7 @@ sequenceDiagram
 
 ### Inside the agent loop
 
-The loop is about 70 lines in [`packages/harness/src/index.ts`](packages/harness/src/index.ts). The model has three tools: `run_command`, `read_file` and `write_file`. When it replies without calling a tool, it is done.
+The loop is about 70 lines in [`packages/harness/src/index.ts`](packages/harness/src/index.ts). The model has four tools: `run_command`, `read_file`, `write_file` and `edit_file`. When it replies without calling a tool, it is done.
 
 ```mermaid
 flowchart LR
@@ -210,7 +210,9 @@ There is **no build step**. Packages export their `src/index.ts` directly and `t
 
 | Method | Path | What it does |
 |---|---|---|
-| `POST` | `/runs` | Start a run. Body: `{ task, provider, model, apiKey, repoUrl? }`. Returns `{ runId }`. |
+| `POST` | `/runs` | Start a run. Body: `{ task, provider, model, apiKey, repoUrl?, chatId? }`. Pass `chatId` to continue a saved chat. Returns `{ runId, chatId }`. |
+| `GET` | `/chats` | The saved chats, newest first: `[{ id, title }]`. |
+| `GET` | `/chats/:id` | One chat's events, so the page can show it again. |
 | `GET` | `/runs/:id/events` | Server-sent events. A reconnecting client sends `Last-Event-ID` and gets only what it missed. |
 | `POST` | `/runs/:id/cancel` | Stop the run and destroy its container. |
 | `GET` | `/runs/:id/download` | The finished project as `result.zip`. |
@@ -263,3 +265,22 @@ Set `PROVIDER` (`anthropic`, `openai`, `gemini` or `sarvam`) and `MODEL` to swit
 - Ideas: follow-up messages that continue in the same container, run history that survives a restart, login, and a network-restricted sandbox.
 
 Each run is independent today. Sending a new message starts a fresh container rather than continuing the last one.
+
+## Saved chats
+
+Every chat is saved, so you can close the tab and continue later.
+
+- **Neon** (`packages/db`, through Prisma) keeps the chat: the events the page shows, and the messages the model has seen. Tables are defined in `packages/db/prisma/schema.prisma`; after changing it, run `pnpm --filter @agent/db db:push`.
+- **Cloudflare R2** (`packages/cloud`) keeps the files: a `tar.gz` of the sandbox (with `.git`, without `node_modules`) at `chats/<chatId>/workspace.tar.gz`.
+
+When you send a message in a saved chat, the server starts a fresh sandbox, unpacks the snapshot, and gives the model its old messages plus the new task. API keys are never saved, so enter yours in Settings again after a reload.
+
+Set these in `.env` (local) or `/etc/cloud-agent.env` (server):
+
+```
+DATABASE_URL=postgresql://...neon.tech/neondb?sslmode=require
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=...
+```

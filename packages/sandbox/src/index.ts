@@ -14,6 +14,8 @@ export interface Sandbox {
   writeFile(path: string, content: string): Promise<void>;
   /** Copy a file from the container to the host. */
   download(containerPath: string, hostPath: string): Promise<void>;
+  /** Copy a file from the host into the container. */
+  upload(hostPath: string, containerPath: string): Promise<void>;
   destroy(): Promise<void>;
 }
 
@@ -94,6 +96,10 @@ export async function createSandbox(opts: {
 
     async download(containerPath, hostPath) {
       mustSucceed(await docker(["cp", `${name}:${containerPath}`, hostPath]), "docker cp");
+    },
+
+    async upload(hostPath, containerPath) {
+      mustSucceed(await docker(["cp", hostPath, `${name}:${containerPath}`]), "docker cp");
     },
 
     async destroy() {
